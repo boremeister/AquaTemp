@@ -27,15 +27,15 @@ Author: boremeister
 #include <LiquidCrystal.h>
 
 // PINS AND DEFINITIONS
-#define TEMP_SENS_PIN 6		// temperature sensor
+#define TEMP_SENS_PIN 3		// temperature sensor
 #define BKG_LIGHT 13		// controls backlight
-#define BUTTON 8			// button for turning LED backlight ON
+#define BUTTON 4			// button for turning LED backlight ON
 #define DEBUG_MODE 1		// DEBUG_MODE mode (1 - on, 0 - off)
 OneWire oneWire(TEMP_SENS_PIN);			// Setup a oneWire instance to communicate with any OneWire devices
 DallasTemperature sensors(&oneWire);	// Pass our oneWire reference to Dallas Temperature. 
 DeviceAddress Probe01 = { 0x28, 0xEE, 0x80, 0x97, 0x06, 0x00, 0x00, 0x59 };
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);	// LiquidCrystal lcd(RS, E, D4, D5, D6, D7);
+LiquidCrystal lcd(12, 11, 10, 9, 5, 6);	// LiquidCrystal lcd(RS, E, D4, D5, D6, D7);
 
 // GLOBAL VARIABLES
 float temp;
