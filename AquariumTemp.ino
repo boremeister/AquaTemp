@@ -16,8 +16,7 @@ Author: boremeister
 
 /*
 * TODO
-* a) try with 3,3V
-* b) minimize power consumption -> sleep (mogoèe bi bilo najboljš, da je cel èas v sleep, ko pritisneš gumb se zbudi, prižge screen, zmeri temp in jo pokaže)
+* a) remove commented-out code
 */
 
 // LIBRARIES 
@@ -25,12 +24,17 @@ Author: boremeister
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal.h>
+#include <avr/sleep.h>
+#include <avr/wdt.h>
 
 // PINS AND DEFINITIONS
 #define TEMP_SENS_PIN 3		// temperature sensor
 #define BKG_LIGHT 13		// controls backlight
-#define BUTTON 4			// button for turning LED backlight ON
+#define BUTTON 4			// button for turning LED screen backlight ON
+#define LED 8				// button for turning LED ON
 #define DEBUG_MODE 1		// DEBUG_MODE mode (1 - on, 0 - off)
+#define WAKE_PIN 2			// pin used for waking up (interrupt port)
+#define LCD_ON_TIME 7000	// amount of time LCD background light is ON
 OneWire oneWire(TEMP_SENS_PIN);			// Setup a oneWire instance to communicate with any OneWire devices
 DallasTemperature sensors(&oneWire);	// Pass our oneWire reference to Dallas Temperature. 
 DeviceAddress Probe01 = { 0x28, 0xEE, 0x80, 0x97, 0x06, 0x00, 0x00, 0x59 };
@@ -59,19 +63,21 @@ void setup()
 	Serial.println("Reading temperature ...");
 #endif
 
+	// prepare PINs
+	pinMode(WAKE_PIN, INPUT);
 	pinMode(BUTTON, INPUT);
 	pinMode(BKG_LIGHT, OUTPUT);
+	pinMode(LED, OUTPUT);
 
-	digitalWrite(BKG_LIGHT, HIGH);
-	ledBacklightState = true;	// set backlight status variable to on
 	lcd.begin(16, 2);
 	lcd.clear();
-	// title
-	lcd.setCursor(0, 0);
-	lcd.write("LCD screen ...");
-	// content
-	lcd.setCursor(0, 1);
-	lcd.print("... initialized!");
+	//digitalWrite(BKG_LIGHT, HIGH);
+	//// title
+	//lcd.setCursor(0, 0);
+	//lcd.write("LCD screen ...");
+	//// content
+	//lcd.setCursor(0, 1);
+	//lcd.print("... initialized!");
 
 	// default start delay
 	delay(1000);
@@ -80,63 +86,170 @@ void setup()
 void loop()
 {
 	
+	//// NORMAL variant
+	//
+	///*
+	//* measuer and display temeprature
+	//*/
+	//if (tempTimer > sensorInterval){
+
+	//	tempTimer -= sensorInterval;	// reset timer
+	//	
+	//	// read temperature
+	//	sensors.requestTemperatures(); // Send the command to get temperatures
+	//	// You can have more than one IC on the same bus. 
+	//	// 0 refers to the first IC on the wire
+	//	temp = sensors.getTempCByIndex(0);	// returns 4 decimal places?
+
+	//	#if defined(DEBUG_MODE)
+	//		Serial.println(temp);
+	//	#endif
+	//
+	//	/*
+	//	* display data on led
+	//	*/
+	//	lcd.clear();
+	//	// title
+	//	lcd.setCursor(0, 0);
+	//	lcd.print("Temperature:");
+	//	// content
+	//	lcd.setCursor(5, 1);
+	//	lcd.print(temp, 4);
+	//	lcd.setCursor(10, 1);
+	//	lcd.print(" ");
+	//	lcd.print((char)223);	// symbol for degree
+	//	lcd.print("C");
+	//}
+
+	///* 
+	//* control LED backlight
+	//*/
+	//buttonState = digitalRead(BUTTON);
+
+	//if (buttonState == HIGH){
+	//	if (!ledBacklightState){
+	//		digitalWrite(LED, HIGH);
+	//		digitalWrite(BKG_LIGHT, HIGH);
+	//		ledBacklightState = true;	// set backlight status variable to on
+	//		#if defined(DEBUG_MODE)
+	//			Serial.println("Turning LED backlight ON!");
+	//		#endif
+	//		lightTimer = 0;
+	//	}
+	//} else if (lightTimer > lightInterval){
+	//	// turn led backlight off if light interval has passed
+	//	lightTimer -= lightInterval;	// reset timer
+	//	// check if backlight is on
+	//	if (ledBacklightState){
+	//		digitalWrite(LED, LOW);
+	//		digitalWrite(BKG_LIGHT, LOW);
+	//		ledBacklightState = false;
+	//		#if defined(DEBUG_MODE)
+	//			Serial.println("Turning LED backlight OFF!");
+	//		#endif
+	//	}
+	//}
+
+	// SLEEP variant
+
 	/*
-	* measuer and display temeprature
+	* display data on led
 	*/
-	if (tempTimer > sensorInterval){
+	lcd.clear();
+	// title
+	lcd.setCursor(0, 0);
+	lcd.print("Measuring ...");
+	lcd.setCursor(1, 1);
+	lcd.print("... temperature");
 
-		tempTimer -= sensorInterval;	// reset timer
-		
-		// read temperature
-		sensors.requestTemperatures(); // Send the command to get temperatures
-		// You can have more than one IC on the same bus. 
-		// 0 refers to the first IC on the wire
-		temp = sensors.getTempCByIndex(0);	// returns 4 decimal places?
+	digitalWrite(BKG_LIGHT, HIGH);
 
-		#if defined(DEBUG_MODE)
-			Serial.println(temp);
-		#endif
+	// read temperature
+	sensors.requestTemperatures(); // Send the command to get temperatures
+	// You can have more than one IC on the same bus. 
+	// 0 refers to the first IC on the wire
+	temp = sensors.getTempCByIndex(0);	// returns 4 decimal places?
+
+	//digitalWrite(LED, HIGH);
+	flashLED();
+
+	#if defined(DEBUG_MODE)
+		Serial.println(temp);
+	#endif
 	
-		/*
-		* display data on led
-		*/
-		lcd.clear();
-		// title
-		lcd.setCursor(0, 0);
-		lcd.print("Temperature:");
-		// content
-		lcd.setCursor(5, 1);
-		lcd.print(temp, 4);
-		lcd.setCursor(10, 1);
-		lcd.print(" ");
-		lcd.print((char)223);	// symbol for degree
-		lcd.print("C");
-	}
-
-	/* 
-	* control LED backlight
+	/*
+	* display data on led
 	*/
-	buttonState = digitalRead(BUTTON);
+	lcd.clear();
+	// title
+	lcd.setCursor(0, 0);
+	lcd.print("Temperature is");
+	// content
+	lcd.setCursor(5, 1);
+	lcd.print(temp, 4);
+	lcd.setCursor(10, 1);
+	lcd.print(" ");
+	lcd.print((char)223);	// symbol for degree
+	lcd.print("C");
+	
+	// show data on LCD for some time
+	delay(LCD_ON_TIME);
 
-	if (buttonState == HIGH){
-		if (!ledBacklightState){		
-			digitalWrite(BKG_LIGHT, HIGH);
-			ledBacklightState = true;	// set backlight status variable to on
-			#if defined(DEBUG_MODE)
-				Serial.println("Turning LED backlight ON!");
-			#endif
-			lightTimer = 0;
-		}
-	} else if (lightTimer > lightInterval){
-		// turn led backlight off if light interval has passed
-		lightTimer -= lightInterval;	// reset timer
-		// check if backlight is on
-		if (ledBacklightState){
-			digitalWrite(BKG_LIGHT, LOW);
-			ledBacklightState = false;
-			#if defined(DEBUG_MODE)
-				Serial.println("Turning LED backlight OFF!");
-			#endif
-		}
+	// show 'slepping' on LCD and turn backlight off
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("Sleeping ...");
+	digitalWrite(BKG_LIGHT, LOW);
+
+	// go to sleep
+	sleepNow();
+}
+
+void sleepNow()         // here we put the arduino to sleep
+{
+
+	// disable ADC
+	ADCSRA = 0;
+
+	// use interrupt 0 (pin 2) and run function wakeUpNow when pin 2 gets LOW
+	attachInterrupt(0, wakeUpNow, LOW);
+	
+	// set sleep mode
+	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+
+	// enable the sleep bit in the mcucr register so sleep is possible. just a safety pin
+	sleep_enable();
+
+	// put devide to sleep
+	sleep_mode();
+	
+	/*
+	* THE PROGRAM CONTINUES FROM HERE AFTER WAKING UP
+	*/
+	
+	// first thing after waking from sleep disable sleep
+	sleep_disable();
+}
+
+/*
+* handle the interrupt after wakeup
+*/
+void wakeUpNow()
+{
+	// execute code here after wake-up before returning to the loop() function
+	// timers and code using timers (serial.print and more...) will not work here.
+
+	// disables interrupt 0 on pin 2 so the wakeUpNow code will not be executed during normal running time.
+	detachInterrupt(0);
+}
+
+void flashLED()
+{
+	for (byte i = 0; i < 3; i++)
+	{
+		digitalWrite(LED, HIGH);
+		delay(50);
+		digitalWrite(LED, LOW);
+		delay(200);
 	}
 }
