@@ -16,22 +16,21 @@ Author: boremeister
 
 /*
 * TODO
-* a) remove commented-out code
+* a) try controling LED power with one of atmega's digital pin & transistor
+* b) try 8 MHz again
 */
 
 // LIBRARIES 
-#include <elapsedMillis.h>	// http://playground.arduino.cc/Code/ElapsedMillis
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal.h>
 #include <avr/sleep.h>
-#include <avr/wdt.h>
 
 // PINS AND DEFINITIONS
 #define TEMP_SENS_PIN 3		// temperature sensor
 #define BKG_LIGHT 13		// controls backlight
 #define BUTTON 4			// button for turning LED screen backlight ON
-#define LED 8				// button for turning LED ON
+#define LED 8				// blinking LED
 #define DEBUG_MODE 1		// DEBUG_MODE mode (1 - on, 0 - off)
 #define WAKE_PIN 2			// pin used for waking up (interrupt port)
 #define LCD_ON_TIME 7000	// amount of time LCD background light is ON
@@ -43,11 +42,6 @@ LiquidCrystal lcd(12, 11, 10, 9, 5, 6);	// LiquidCrystal lcd(RS, E, D4, D5, D6, 
 
 // GLOBAL VARIABLES
 float temp;
-elapsedMillis tempTimer;				// timer for temperature measurement
-long int sensorInterval = 5000;			// interval for measuring temperature [ms]
-const byte msToSec = 1000;				// conversion ms -> s
-int buttonState = 0;					// state of button
-elapsedMillis lightTimer;				// timer for temperature measurement
 long int lightInterval = 7000;			// interval for measuring temperature [ms]
 bool ledBacklightState = false;			// current state of led backlight
 
@@ -58,8 +52,6 @@ void setup()
 	Serial.begin(9600);
 	sensors.begin();
 	Serial.println("Prepare ready!");
-	Serial.println("Settings:");
-	Serial.println("Sensor timer: " + String(sensorInterval / msToSec) + "s");
 	Serial.println("Reading temperature ...");
 #endif
 
@@ -85,72 +77,6 @@ void setup()
 
 void loop()
 {
-	
-	//// NORMAL variant
-	//
-	///*
-	//* measuer and display temeprature
-	//*/
-	//if (tempTimer > sensorInterval){
-
-	//	tempTimer -= sensorInterval;	// reset timer
-	//	
-	//	// read temperature
-	//	sensors.requestTemperatures(); // Send the command to get temperatures
-	//	// You can have more than one IC on the same bus. 
-	//	// 0 refers to the first IC on the wire
-	//	temp = sensors.getTempCByIndex(0);	// returns 4 decimal places?
-
-	//	#if defined(DEBUG_MODE)
-	//		Serial.println(temp);
-	//	#endif
-	//
-	//	/*
-	//	* display data on led
-	//	*/
-	//	lcd.clear();
-	//	// title
-	//	lcd.setCursor(0, 0);
-	//	lcd.print("Temperature:");
-	//	// content
-	//	lcd.setCursor(5, 1);
-	//	lcd.print(temp, 4);
-	//	lcd.setCursor(10, 1);
-	//	lcd.print(" ");
-	//	lcd.print((char)223);	// symbol for degree
-	//	lcd.print("C");
-	//}
-
-	///* 
-	//* control LED backlight
-	//*/
-	//buttonState = digitalRead(BUTTON);
-
-	//if (buttonState == HIGH){
-	//	if (!ledBacklightState){
-	//		digitalWrite(LED, HIGH);
-	//		digitalWrite(BKG_LIGHT, HIGH);
-	//		ledBacklightState = true;	// set backlight status variable to on
-	//		#if defined(DEBUG_MODE)
-	//			Serial.println("Turning LED backlight ON!");
-	//		#endif
-	//		lightTimer = 0;
-	//	}
-	//} else if (lightTimer > lightInterval){
-	//	// turn led backlight off if light interval has passed
-	//	lightTimer -= lightInterval;	// reset timer
-	//	// check if backlight is on
-	//	if (ledBacklightState){
-	//		digitalWrite(LED, LOW);
-	//		digitalWrite(BKG_LIGHT, LOW);
-	//		ledBacklightState = false;
-	//		#if defined(DEBUG_MODE)
-	//			Serial.println("Turning LED backlight OFF!");
-	//		#endif
-	//	}
-	//}
-
-	// SLEEP variant
 
 	/*
 	* display data on led
@@ -170,12 +96,12 @@ void loop()
 	// 0 refers to the first IC on the wire
 	temp = sensors.getTempCByIndex(0);	// returns 4 decimal places?
 
+#if defined(DEBUG_MODE)
+	Serial.println(temp);
+#endif
+
 	//digitalWrite(LED, HIGH);
 	flashLED();
-
-	#if defined(DEBUG_MODE)
-		Serial.println(temp);
-	#endif
 	
 	/*
 	* display data on led
@@ -205,7 +131,10 @@ void loop()
 	sleepNow();
 }
 
-void sleepNow()         // here we put the arduino to sleep
+/*
+*	puts arduino/atmega to sleep
+*/
+void sleepNow()
 {
 
 	// disable ADC
@@ -213,12 +142,21 @@ void sleepNow()         // here we put the arduino to sleep
 
 	// use interrupt 0 (pin 2) and run function wakeUpNow when pin 2 gets LOW
 	attachInterrupt(0, wakeUpNow, LOW);
-	
+
+	delay(100);
+
 	// set sleep mode
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
+	noInterrupts();
+
 	// enable the sleep bit in the mcucr register so sleep is possible. just a safety pin
 	sleep_enable();
+
+	// turn off brown-out enable in software
+	MCUCR = bit(BODS) | bit(BODSE);  // turn on brown-out enable select
+	MCUCR = bit(BODS);        // this must be done within 4 clock cycles of above
+	interrupts();             // guarantees next instruction executed
 
 	// put devide to sleep
 	sleep_mode();
@@ -232,7 +170,7 @@ void sleepNow()         // here we put the arduino to sleep
 }
 
 /*
-* handle the interrupt after wakeup
+*	handle the interrupt after wakeup
 */
 void wakeUpNow()
 {
