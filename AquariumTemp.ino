@@ -29,7 +29,6 @@ Author: boremeister
 // PINS AND DEFINITIONS
 #define TEMP_SENS_PIN 3		// temperature sensor
 #define BKG_LIGHT 13		// controls backlight
-#define BUTTON 4			// button for turning LED screen backlight ON
 #define LED 8				// blinking LED
 #define DEBUG_MODE 1		// DEBUG_MODE mode (1 - on, 0 - off)
 #define WAKE_PIN 2			// pin used for waking up (interrupt port)
@@ -57,12 +56,11 @@ void setup()
 
 	// prepare PINs
 	pinMode(WAKE_PIN, INPUT);
-	pinMode(BUTTON, INPUT);
 	pinMode(BKG_LIGHT, OUTPUT);
 	pinMode(LED, OUTPUT);
 
 	lcd.begin(16, 2);
-	lcd.clear();
+	//lcd.clear();
 	//digitalWrite(BKG_LIGHT, HIGH);
 	//// title
 	//lcd.setCursor(0, 0);
