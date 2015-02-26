@@ -9,6 +9,7 @@ Author: boremeister
 /*
 
 * one-wire protocol - http://playground.arduino.cc/Learning/OneWire
+* temperature sensor connection - http://bildr.org/2011/07/ds18b20-arduino/
 * find device address - http://www.hacktronics.com/Tutorials/arduino-1-wire-address-finder.html
 *		mine is device address (temperature sensor DS18B20) - 0x28, 0xEE, 0x80, 0x97, 0x06, 0x00, 0x00, 0x59
 * connecting LCD 1602 - http://www.dreamdealer.nl/tutorials/connecting_a_1602a_lcd_display_and_a_light_sensor_to_arduino_uno.html
